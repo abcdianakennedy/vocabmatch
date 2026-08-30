@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Vocabulary Match</title>
+<style>
+:root{
+  --ink:#1d2733; --muted:#5d6b7d; --line:#c9d4e2;
+  --paper:#f4f7fb; --card:#ffffff;
+  --word:#2f6fb5; --wordbg:#e8f1fb;
+  --mean:#8a5a1f; --meanbg:#fdf3e2;
+  --good:#1f7a4d; --goodbg:#e5f5ec;
+  --bad:#b1372f;
+  --pick:#f0a323;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Avenir Next","Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;
+  display:flex; flex-direction:column; overflow:hidden;
+  user-select:none; -webkit-user-select:none;
+}
+header{
+  flex:0 0 auto; display:flex; align-items:center; gap:.6rem;
+  padding:.55rem .9rem; background:#fff; border-bottom:2px solid var(--line);
+}
+h1{font-size:clamp(15px,2.2vw,26px); margin:0 auto 0 0; letter-spacing:.01em}
+h1 small{display:block; font-size:.62em; font-weight:500; color:var(--muted)}
+button{font:inherit; color:inherit; cursor:pointer}
+.btn{
+  border:2px solid var(--line); background:#fff; border-radius:10px;
+  padding:.42em .8em; font-size:clamp(12px,1.35vw,17px); font-weight:600;
+}
+.btn:hover{border-color:var(--word); color:var(--word)}
+.btn.on{background:var(--word); border-color:var(--word); color:#fff}
+.seg{display:flex; border:2px solid var(--line); border-radius:10px; overflow:hidden}
+.seg button{
+  border:0; background:#fff; padding:.42em .9em; font-weight:600;
+  font-size:clamp(12px,1.35vw,17px);
+}
+.seg button.on{background:var(--word); color:#fff}
+
+main{flex:1 1 auto; padding:clamp(8px,1.4vw,20px); overflow:hidden}
+#board{
+  height:100%; display:grid; gap:clamp(7px,1.1vw,16px);
+  grid-template-columns:repeat(5,1fr); grid-template-rows:repeat(2,1fr);
+}
+.card{
+  position:relative; border:3px solid var(--line); border-radius:16px;
+  background:var(--card); display:flex; flex-direction:column;
+  align-items:center; justify-content:center; text-align:center;
+  padding:.5em .55em; overflow:hidden; cursor:pointer;
+  transition:transform .12s ease, border-color .12s ease, background .12s ease;
+}
+.card:active{transform:scale(.985)}
+.card.word{background:var(--wordbg); border-color:#bcd6ef}
+.card.mean{background:var(--meanbg); border-color:#eddcbb}
+.card .w{
+  font-weight:800; letter-spacing:.005em; line-height:1.05;
+  font-size:clamp(20px,3.6vw,58px); color:var(--word);
+}
+.card .m{
+  font-weight:600; line-height:1.22; color:var(--mean);
+  font-size:clamp(13px,1.85vw,30px);
+}
+.card svg{width:clamp(30px,5.1vw,82px); height:clamp(30px,5.1vw,82px); margin-bottom:.18em}
+.card.word svg{stroke:var(--word)}
+.card.picked{border-color:var(--pick); box-shadow:inset 0 0 0 4px #ffe9c2}
+.card.matched{
+  background:var(--goodbg); border-color:var(--good); cursor:default;
+}
+.card.matched .w,.card.matched .m{color:var(--good)}
+.card.matched svg{stroke:var(--good)}
+.card.matched .tick{display:block}
+.tick{display:none; position:absolute; top:.3em; right:.36em; width:1.5em; height:1.5em}
+.tick svg{width:100%; height:100%; margin:0; stroke:var(--good)}
+.card.wrong{animation:shake .34s}
+@keyframes shake{
+  0%,100%{transform:translateX(0)} 20%{transform:translateX(-7px)}
+  40%{transform:translateX(7px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)}
+}
+.card.hidden{background:var(--word); border-color:#255a94; color:#fff}
+.card.hidden>*{display:none}
+.card.hidden::after{
+  content:attr(data-n); font-size:clamp(24px,4.6vw,74px); font-weight:800; color:#fff;
+}
+
+#done{
+  position:fixed; inset:0; background:rgba(29,39,51,.72);
+  display:none; align-items:center; justify-content:center; z-index:20;
+}
+#done.show{display:flex}
+#done .box{
+  background:#fff; border-radius:22px; padding:clamp(18px,3vw,42px);
+  text-align:center; max-width:80vw;
+}
+#done h2{margin:.1em 0 .35em; font-size:clamp(22px,4vw,54px); color:var(--good)}
+#done p{margin:0 0 1em; color:var(--muted); font-size:clamp(14px,1.8vw,24px)}
+
+.panel{
+  position:fixed; inset:0; background:rgba(29,39,51,.72); z-index:30;
+  display:none; align-items:center; justify-content:center; padding:3vh 3vw;
+}
+.panel.show{display:flex}
+.panel .sheet{
+  background:#fff; border-radius:20px; width:min(900px,94vw); max-height:94vh;
+  overflow:auto; padding:clamp(16px,2.4vw,32px);
+}
+.panel h2{margin:0 0 .1em; font-size:clamp(18px,2.6vw,32px)}
+.panel .hint{color:var(--muted); margin:.2em 0 1em; font-size:clamp(12px,1.5vw,17px); line-height:1.45}
+.panel textarea{
+  width:100%; height:34vh; font:600 clamp(13px,1.6vw,19px)/1.5 ui-monospace,Menlo,Consolas,monospace;
+  border:2px solid var(--line); border-radius:12px; padding:.7em; color:var(--ink); resize:vertical;
+}
+.rowbtns{display:flex; gap:.6rem; justify-content:flex-end; margin-top:1rem; flex-wrap:wrap}
+.study{display:grid; gap:.7rem}
+.study .row{
+  display:flex; gap:.9rem; align-items:center; border:2px solid var(--line);
+  border-radius:14px; padding:.6em .8em; background:var(--paper);
+}
+.study .row svg{width:2.4em; height:2.4em; flex:0 0 auto; stroke:var(--word)}
+.study .row b{color:var(--word); font-size:clamp(16px,2.2vw,28px); display:block}
+.study .row span{color:var(--mean); font-size:clamp(13px,1.7vw,21px); font-weight:600}
+
+@media (max-aspect-ratio:1/1){
+  #board{grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(5,1fr)}
+  .card .w{font-size:clamp(20px,6vw,44px)}
+  .card .m{font-size:clamp(13px,3.2vw,24px)}
+  .card svg{width:clamp(26px,7vw,54px); height:clamp(26px,7vw,54px)}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Vocabulary Match<small id="sub">tap a word, then tap what it means</small></h1>
+  <div class="seg">
+    <button id="mMatch" class="on">Match</button>
+    <button id="mMemory">Memory</button>
+  </div>
+  <button class="btn" id="bStudy">Word list</button>
+  <button class="btn" id="bShuffle">Shuffle</button>
+  <button class="btn" id="bEdit">Words</button>
+  <button class="btn on" id="bSound">Sound</button>
+</header>
+
+<main><div id="board"></div></main>
+
+<div id="done"><div class="box">
+  <h2>All matched</h2>
+  <p id="doneline"></p>
+  <button class="btn" id="bAgain">Play again</button>
+</div></div>
+
+<div class="panel" id="pStudy"><div class="sheet">
+  <h2>This week's words</h2>
+  <p class="hint">Read them together before you play. Tap a word on the board, then tap what it means.</p>
+  <div class="study" id="studyList"></div>
+  <div class="rowbtns"><button class="btn" data-close="pStudy">Close</button></div>
+</div></div>
+
+<div class="panel" id="pEdit"><div class="sheet">
+  <h2>Change the words</h2>
+  <p class="hint">One pair per line, written as <b>word = what it means</b>. Five pairs fill the board best; three to eight also work. Your list is saved on this device, so next week you type the new words and everything else stays the same.</p>
+  <textarea id="edit" spellcheck="false"></textarea>
+  <div class="rowbtns">
+    <button class="btn" id="bReset">Back to this week</button>
+    <button class="btn" data-close="pEdit">Cancel</button>
+    <button class="btn on" id="bSave">Save and play</button>
+  </div>
+</div></div>
+
+<script>
+(function(){
+"use strict";
+
+var KEY = "vocabmatch.v1";
+
+/* ---- default set: week of Aug 24, Ms Diana's grade 3 vocabulary ---- */
+var DEFAULT = [
+  {w:"video",    m:"moving pictures and sound that you watch on a screen", i:"video"},
+  {w:"costumes", m:"clothes you put on to look like someone or something else", i:"costume"},
+  {w:"block",    m:"the part of a street between two corners, with houses on it", i:"block"},
+  {w:"hydrant",  m:"a short, thick pipe on the sidewalk where firefighters get water", i:"hydrant"},
+  {w:"march",    m:"to walk together with strong, even steps", i:"march"}
+];
+
+/* ---- line-art icons, drawn not typed ---- */
+var ICON = {
+  video:'<path d="M6 16h32a4 4 0 0 1 4 4v24a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V20a4 4 0 0 1 4-4z"/><path d="M42 30l18-9v22l-18-9z"/><path d="M17 26l12 6-12 6z"/>',
+  costume:'<path d="M32 8a5 5 0 0 0-5 5c0 3.2 2.2 4.4 5 5v4"/><path d="M32 22L8 36l6 7 5-3v18h26V40l5 3 6-7z"/>',
+  block:'<path d="M4 56h56"/><path d="M8 56V30l11-8 11 8v26"/><path d="M34 56V36l10-7 10 7v20"/><path d="M15 38h8v8h-8z"/><path d="M41 42h6v6h-6z"/>',
+  hydrant:'<path d="M10 58h44"/><path d="M22 58V26h20v32"/><path d="M22 34h-7v8h7M42 34h7v8h-7"/><path d="M20 26h24"/><path d="M26 26v-4a6 6 0 0 1 12 0v4"/><path d="M27 42h10"/>',
+  march:'<circle cx="27" cy="10" r="6.5"/><path d="M27 17v19"/><path d="M27 36l-3 21"/><path d="M27 36l13 7-3 14"/><path d="M27 22l-13 7M27 22l16-9"/>',
+  letter:null
+};
+function iconSvg(name, word){
+  var d = ICON[name];
+  if(!d){
+    var ch = (word||"?").charAt(0).toUpperCase();
+    return '<svg viewBox="0 0 64 64" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'
+      + '<circle cx="32" cy="32" r="26"/></svg>'
+      + '<div class="w" style="font-size:1.4em;margin-top:-1.9em;height:0">' + ch + '</div>';
+  }
+  return '<svg viewBox="0 0 64 64" fill="none" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>';
+}
+var TICK = '<span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13l6 6L20 6"/></svg></span>';
+
+/* ---- state ---- */
+var pairs = load();
+var mode = "match";       // "match" | "memory"
+var sound = true;
+var tiles = [];           // {el, pid, kind}
+var picked = null;        // tile
+var busy = false;
+var matched = 0, tries = 0;
+
+var board = document.getElementById("board");
+
+function load(){
+  try{
+    var raw = localStorage.getItem(KEY);
+    if(raw){
+      var p = JSON.parse(raw);
+      if(p && p.length) return p;
+    }
+  }catch(e){}
+  return DEFAULT.slice();
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(pairs)); }catch(e){}
+}
+
+function shuffle(a){
+  for(var i=a.length-1;i>0;i--){
+    var j = Math.floor(Math.random()*(i+1)), t=a[i]; a[i]=a[j]; a[j]=t;
+  }
+  return a;
+}
+
+function build(){
+  board.innerHTML = "";
+  tiles = []; picked = null; busy = false; matched = 0; tries = 0;
+  document.getElementById("done").classList.remove("show");
+
+  var n = pairs.length;
+  var cols = n;
+  board.style.gridTemplateColumns = "repeat(" + cols + ",1fr)";
+  board.style.gridTemplateRows = "repeat(2,1fr)";
+  if(window.matchMedia("(max-aspect-ratio:1/1)").matches){
+    board.style.gridTemplateColumns = "repeat(2,1fr)";
+    board.style.gridTemplateRows = "repeat(" + n + ",1fr)";
+  }
+
+  var deck = [];
+  pairs.forEach(function(p,i){
+    deck.push({pid:i, kind:"word"});
+    deck.push({pid:i, kind:"mean"});
+  });
+  shuffle(deck);
+
+  deck.forEach(function(d,k){
+    var el = document.createElement("div");
+    el.className = "card " + d.kind;
+    el.setAttribute("data-n", k+1);
+    el.setAttribute("data-pid", d.pid);
+    var p = pairs[d.pid];
+    if(d.kind === "word"){
+      el.innerHTML = iconSvg(p.i, p.w) + '<div class="w">' + esc(p.w) + '</div>' + TICK;
+    }else{
+      el.innerHTML = '<div class="m">' + esc(p.m) + '</div>' + TICK;
+    }
+    if(mode === "memory") el.classList.add("hidden");
+    var t = {el:el, pid:d.pid, kind:d.kind, done:false};
+    el.addEventListener("click", function(){ tap(t); });
+    board.appendChild(el);
+    tiles.push(t);
+  });
+}
+
+function esc(s){
+  return String(s).replace(/[&<>]/g, function(c){
+    return c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;";
+  });
+}
+
+function tap(t){
+  if(busy || t.done) return;
+  if(picked === t){ unpick(t); picked = null; return; }
+  reveal(t);
+  t.el.classList.add("picked");
+  if(!picked){ picked = t; return; }
+
+  var a = picked, b = t;
+  picked = null;
+  tries++;
+
+  if(a.pid === b.pid && a.kind !== b.kind){
+    a.done = b.done = true;
+    [a,b].forEach(function(x){
+      x.el.classList.remove("picked","hidden");
+      x.el.classList.add("matched");
+    });
+    matched++;
+    beep(true);
+    if(matched === pairs.length) setTimeout(finish, 520);
+  }else{
+    busy = true;
+    [a,b].forEach(function(x){ x.el.classList.add("wrong"); });
+    beep(false);
+    setTimeout(function(){
+      [a,b].forEach(function(x){
+        x.el.classList.remove("picked","wrong");
+        if(mode === "memory") x.el.classList.add("hidden");
+      });
+      busy = false;
+    }, 900);
+  }
+}
+function reveal(t){ if(mode === "memory") t.el.classList.remove("hidden"); }
+function unpick(t){
+  t.el.classList.remove("picked");
+  if(mode === "memory") t.el.classList.add("hidden");
+}
+
+function finish(){
+  document.getElementById("doneline").textContent =
+    pairs.length + " pairs in " + tries + (tries === 1 ? " try" : " tries");
+  document.getElementById("done").classList.add("show");
+}
+
+/* ---- a short tone, no audio files ---- */
+var ac = null;
+function beep(ok){
+  if(!sound) return;
+  try{
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    var o = ac.createOscillator(), g = ac.createGain();
+    o.type = "sine";
+    o.frequency.value = ok ? 660 : 190;
+    g.gain.value = 0.0001;
+    o.connect(g); g.connect(ac.destination);
+    var now = ac.currentTime;
+    g.gain.linearRampToValueAtTime(0.16, now + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + (ok ? 0.5 : 0.28));
+    o.start(now); o.stop(now + 0.55);
+    if(ok){
+      var o2 = ac.createOscillator(), g2 = ac.createGain();
+      o2.type = "sine"; o2.frequency.value = 990;
+      g2.gain.value = 0.0001; o2.connect(g2); g2.connect(ac.destination);
+      g2.gain.linearRampToValueAtTime(0.11, now + 0.14);
+      g2.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+      o2.start(now + 0.12); o2.stop(now + 0.65);
+    }
+  }catch(e){}
+}
+
+/* ---- chrome ---- */
+function setMode(m){
+  mode = m;
+  document.getElementById("mMatch").classList.toggle("on", m === "match");
+  document.getElementById("mMemory").classList.toggle("on", m === "memory");
+  document.getElementById("sub").textContent = m === "match"
+    ? "tap a word, then tap what it means"
+    : "cards are face down: turn two and find a pair";
+  build();
+}
+document.getElementById("mMatch").onclick = function(){ setMode("match"); };
+document.getElementById("mMemory").onclick = function(){ setMode("memory"); };
+document.getElementById("bShuffle").onclick = build;
+document.getElementById("bAgain").onclick = build;
+document.getElementById("bSound").onclick = function(){
+  sound = !sound; this.classList.toggle("on", sound);
+};
+
+document.getElementById("bStudy").onclick = function(){
+  var box = document.getElementById("studyList");
+  box.innerHTML = "";
+  pairs.forEach(function(p){
+    var r = document.createElement("div");
+    r.className = "row";
+    r.innerHTML = iconSvg(p.i, p.w) + "<div><b>" + esc(p.w) + "</b><span>" + esc(p.m) + "</span></div>";
+    box.appendChild(r);
+  });
+  document.getElementById("pStudy").classList.add("show");
+};
+document.getElementById("bEdit").onclick = function(){
+  document.getElementById("edit").value =
+    pairs.map(function(p){ return p.w + " = " + p.m; }).join("\n");
+  document.getElementById("pEdit").classList.add("show");
+};
+document.getElementById("bReset").onclick = function(){
+  document.getElementById("edit").value =
+    DEFAULT.map(function(p){ return p.w + " = " + p.m; }).join("\n");
+};
+document.getElementById("bSave").onclick = function(){
+  var out = [];
+  document.getElementById("edit").value.split("\n").forEach(function(line){
+    var k = line.indexOf("=");
+    if(k < 1) return;
+    var w = line.slice(0,k).trim(), m = line.slice(k+1).trim();
+    if(!w || !m) return;
+    var d = null;
+    DEFAULT.forEach(function(x){ if(x.w.toLowerCase() === w.toLowerCase()) d = x.i; });
+    out.push({w:w, m:m, i:d || "letter"});
+  });
+  if(!out.length){ return; }
+  pairs = out.slice(0, 8);
+  save();
+  document.getElementById("pEdit").classList.remove("show");
+  build();
+};
+Array.prototype.forEach.call(document.querySelectorAll("[data-close]"), function(b){
+  b.onclick = function(){ document.getElementById(b.getAttribute("data-close")).classList.remove("show"); };
+});
+window.addEventListener("resize", function(){
+  clearTimeout(window.__rz);
+  window.__rz = setTimeout(function(){
+    var n = pairs.length;
+    if(window.matchMedia("(max-aspect-ratio:1/1)").matches){
+      board.style.gridTemplateColumns = "repeat(2,1fr)";
+      board.style.gridTemplateRows = "repeat(" + n + ",1fr)";
+    }else{
+      board.style.gridTemplateColumns = "repeat(" + n + ",1fr)";
+      board.style.gridTemplateRows = "repeat(2,1fr)";
+    }
+  }, 120);
+});
+
+build();
+})();
+</script>
+</body>
+</html>
